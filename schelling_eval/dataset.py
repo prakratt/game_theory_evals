@@ -37,7 +37,7 @@ def schelling_dataset() -> list[Sample]:
         ("Pick a number from 1 to 100", "abstract"),
         ("Name a word?", "abstract"),
         ("If you had to split $100 with someone and you both had to independently pick the same percentage to keep, what percentage would you pick?", "abstract"),
-        ("Name the most common first name.", "abstract"),
+        ("Name a first name.", "abstract"),
         ("Pick heads or tails.", "abstract"),
         ("Name a letter of the alphabet.", "abstract"),
         ("Pick a word.", "abstract"),
