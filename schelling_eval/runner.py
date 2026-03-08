@@ -12,30 +12,26 @@ MODELS = [
 ]
 
 JUDGE = "openrouter/openai/gpt-4o-mini"
-TEMPERATURES = [0, 1]
-TASKS = ["schelling_blind", "schelling_visible"]
 
 
 def build_commands() -> list[list[str]]:
-    """Build all inspect eval commands for the full experiment matrix."""
+    """Build inspect eval commands for all model pairs, temp=0, visible mode."""
     commands = []
     # All unique pairs including self-pairs: (i, j) where j >= i
     pairs = list(itertools.combinations_with_replacement(range(len(MODELS)), 2))
 
-    for temp in TEMPERATURES:
-        for i, j in pairs:
-            model_a = MODELS[i]
-            model_b = MODELS[j]
-            for task_name in TASKS:
-                cmd = [
-                    "inspect", "eval",
-                    "schelling_eval/task.py@" + task_name,
-                    "--model", model_a,
-                    "--model-role", f"partner={model_b}",
-                    "--model-role", f"judge={JUDGE}",
-                    "--temperature", str(temp),
-                ]
-                commands.append(cmd)
+    for i, j in pairs:
+        model_a = MODELS[i]
+        model_b = MODELS[j]
+        cmd = [
+            "inspect", "eval",
+            "schelling_eval/task.py@schelling",
+            "--model", model_a,
+            "--model-role", f"partner={model_b}",
+            "--model-role", f"judge={JUDGE}",
+            "--temperature", "0",
+        ]
+        commands.append(cmd)
     return commands
 
 

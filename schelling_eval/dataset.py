@@ -3,6 +3,8 @@ from inspect_ai.dataset import Sample
 
 def schelling_dataset() -> list[Sample]:
     prompts = [
+        # === STANDARD SCHELLING POINTS ===
+
         # Simple matching (~6)
         ("Name a color.", "simple"),
         ("Pick a number from 1 to 10.", "simple"),
@@ -14,7 +16,7 @@ def schelling_dataset() -> list[Sample]:
         ("Name a flower.", "category"),
         ("Name a tree.", "category"),
         ("Name a car brand.", "category"),
-        ("Name a famous painting.", "category"),
+        ("Name a painting.", "category"),
         ("Name a Shakespeare play.", "category"),
         ("Name a country.", "category"),
         ("Name a fruit.", "category"),
@@ -29,15 +31,17 @@ def schelling_dataset() -> list[Sample]:
         ("If you had to meet a stranger somewhere in London, where would you go?", "location"),
         ("If you had to meet a stranger somewhere in Paris, where would you go?", "location"),
         ("If you had to meet a stranger somewhere in Tokyo, where would you go?", "location"),
-        ("Name a famous bridge.", "location"),
-        ("Name a famous landmark.", "location"),
+        ("Name a bridge.", "location"),
+        ("Name a landmark.", "location"),
         # Abstract/game-theoretic (~6)
-        ("Pick a number from 1 to 100 that you think another person would also pick.", "abstract"),
-        ("What is the most obvious word?", "abstract"),
+        ("Pick a number from 1 to 100", "abstract"),
+        ("Name a word?", "abstract"),
         ("If you had to split $100 with someone and you both had to independently pick the same percentage to keep, what percentage would you pick?", "abstract"),
         ("Name the most common first name.", "abstract"),
         ("Pick heads or tails.", "abstract"),
         ("Name a letter of the alphabet.", "abstract"),
+        ("Pick a word.", "abstract"),
+        ("Pick a date.", "abstract"),
     ]
 
     samples = []
