@@ -161,38 +161,44 @@ def cooperation_by_rounds(df: pd.DataFrame, output_path: str = "coop_by_rounds.p
 
 # ── 3. Strategy over time (10-round games) ──────────────────────────────────
 
-def strategy_over_time(df: pd.DataFrame, output_path: str = "strategy_over_time.png") -> None:
-    """Line chart of cooperation probability per round number for 10-round games."""
-    df10 = df[df["num_rounds"] == 10].copy()
-    if df10.empty:
-        return
+def strategy_over_time(df: pd.DataFrame, output_dir: str = ".") -> None:
+    """Line chart of cooperation probability per round number, one plot per variant."""
+    colors = {3: "coral", 10: "steelblue"}
 
-    max_rounds = 10
-    round_coop = {r: [] for r in range(1, max_rounds + 1)}
+    for num_rounds in [3, 10]:
+        sub = df[df["num_rounds"] == num_rounds].copy()
+        if sub.empty:
+            continue
 
-    for _, row in df10.iterrows():
-        choices_a = row["all_choices_a"]
-        choices_b = row["all_choices_b"]
-        for r in range(min(len(choices_a), max_rounds)):
-            round_coop[r + 1].append(1 if choices_a[r] == "cooperate" else 0)
-            round_coop[r + 1].append(1 if choices_b[r] == "cooperate" else 0)
+        round_coop: dict[int, list[int]] = {r: [] for r in range(1, num_rounds + 1)}
 
-    rounds = list(range(1, max_rounds + 1))
-    rates = [np.mean(round_coop[r]) if round_coop[r] else 0 for r in rounds]
+        for _, row in sub.iterrows():
+            choices_a = row["all_choices_a"]
+            choices_b = row["all_choices_b"]
+            for r in range(min(len(choices_a), num_rounds)):
+                round_coop[r + 1].append(1 if choices_a[r] == "cooperate" else 0)
+                round_coop[r + 1].append(1 if choices_b[r] == "cooperate" else 0)
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.plot(rounds, rates, marker="o", linewidth=2, color="steelblue")
-    ax.fill_between(rounds, rates, alpha=0.2, color="steelblue")
-    ax.set_xlabel("Round Number")
-    ax.set_ylabel("Cooperation Rate")
-    ax.set_title("Cooperation Rate Over Time (10-Round Games)")
-    ax.set_ylim(0, 1)
-    ax.set_xticks(rounds)
-    ax.grid(True, alpha=0.3)
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=150)
-    plt.close(fig)
-    print(f"Saved: {output_path}")
+        rounds = list(range(1, num_rounds + 1))
+        rates = [np.mean(round_coop[r]) if round_coop[r] else 0 for r in rounds]
+        color = colors.get(num_rounds, "steelblue")
+
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ax.plot(rounds, rates, marker="o", linewidth=2, color=color)
+        ax.fill_between(rounds, rates, alpha=0.2, color=color)
+        for r, rate in zip(rounds, rates):
+            ax.text(r, rate + 0.03, f"{rate:.0%}", ha="center", fontsize=9)
+        ax.set_xlabel("Round Number")
+        ax.set_ylabel("Cooperation Rate")
+        ax.set_title(f"Cooperation Rate Over Time ({num_rounds}-Round Games)")
+        ax.set_ylim(0, 1.1)
+        ax.set_xticks(rounds)
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        out = f"{output_dir}/strategy_over_time_{num_rounds}r.png"
+        fig.savefig(out, dpi=150)
+        plt.close(fig)
+        print(f"Saved: {out}")
 
 
 # ── 4. Mutual cooperation heatmap ────────────────────────────────────────────
@@ -272,6 +278,108 @@ def strategy_summary(df: pd.DataFrame, output_path: str = "strategy_summary.png"
     print(f"Saved: {output_path}")
 
 
+# ── 7. Win rate by model (per variant + overall) ─────────────────────────────
+
+def _compute_win_rates(df: pd.DataFrame) -> pd.DataFrame:
+    """Compute win/draw/loss for each model across all games."""
+    records: list[dict] = []
+    for _, row in df.iterrows():
+        sa = short_name(row["model_a"])
+        sb = short_name(row["model_b"])
+        score_a = row["total_score_a"]
+        score_b = row["total_score_b"]
+        nr = row["num_rounds"]
+        if score_a > score_b:
+            records.append({"model": sa, "result": "win", "num_rounds": nr})
+            records.append({"model": sb, "result": "loss", "num_rounds": nr})
+        elif score_b > score_a:
+            records.append({"model": sa, "result": "loss", "num_rounds": nr})
+            records.append({"model": sb, "result": "win", "num_rounds": nr})
+        else:
+            records.append({"model": sa, "result": "draw", "num_rounds": nr})
+            records.append({"model": sb, "result": "draw", "num_rounds": nr})
+    return pd.DataFrame(records)
+
+
+def win_rate_by_variant(df: pd.DataFrame, output_path: str = "win_rate_by_variant.png") -> None:
+    """Grouped bar chart of win rate per model, split by round variant."""
+    if df.empty:
+        return
+
+    results = _compute_win_rates(df)
+    models = sorted(results["model"].unique())
+    variants = sorted(results["num_rounds"].unique())
+    colors = ["#4c78a8", "#72b7b2", "#e45756"]
+
+    fig, axes = plt.subplots(1, len(variants), figsize=(5 * len(variants), 5), sharey=True)
+    if len(variants) == 1:
+        axes = [axes]
+
+    for ax, nr in zip(axes, variants):
+        sub = results[results["num_rounds"] == nr]
+        total_per_model = sub.groupby("model").size()
+        win_rate = sub[sub["result"] == "win"].groupby("model").size().reindex(models, fill_value=0) / total_per_model.reindex(models, fill_value=1)
+        draw_rate = sub[sub["result"] == "draw"].groupby("model").size().reindex(models, fill_value=0) / total_per_model.reindex(models, fill_value=1)
+        loss_rate = sub[sub["result"] == "loss"].groupby("model").size().reindex(models, fill_value=0) / total_per_model.reindex(models, fill_value=1)
+
+        x = np.arange(len(models))
+        w = 0.25
+        ax.bar(x - w, win_rate, w, label="Win", color=colors[0], edgecolor="black")
+        ax.bar(x, draw_rate, w, label="Draw", color=colors[1], edgecolor="black")
+        ax.bar(x + w, loss_rate, w, label="Loss", color=colors[2], edgecolor="black")
+
+        for i, v in enumerate(win_rate):
+            ax.text(i - w, v + 0.02, f"{v:.0%}", ha="center", fontsize=8)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(models, rotation=20, ha="right", fontsize=8)
+        ax.set_ylim(0, 1.1)
+        ax.set_title(f"{nr}-Round Games")
+        ax.legend(fontsize=8)
+
+    axes[0].set_ylabel("Rate")
+    fig.suptitle("Win / Draw / Loss Rate by Model per Variant", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {output_path}")
+
+
+def win_rate_overall(df: pd.DataFrame, output_path: str = "win_rate_overall.png") -> None:
+    """Stacked bar chart of overall win/draw/loss rate per model."""
+    if df.empty:
+        return
+
+    results = _compute_win_rates(df)
+    models = sorted(results["model"].unique())
+    total = results.groupby("model").size()
+
+    win_rate = results[results["result"] == "win"].groupby("model").size().reindex(models, fill_value=0) / total
+    draw_rate = results[results["result"] == "draw"].groupby("model").size().reindex(models, fill_value=0) / total
+    loss_rate = results[results["result"] == "loss"].groupby("model").size().reindex(models, fill_value=0) / total
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    x = np.arange(len(models))
+    ax.bar(x, win_rate, label="Win", color="#4c78a8", edgecolor="black")
+    ax.bar(x, draw_rate, bottom=win_rate, label="Draw", color="#72b7b2", edgecolor="black")
+    ax.bar(x, loss_rate, bottom=win_rate + draw_rate, label="Loss", color="#e45756", edgecolor="black")
+
+    for i in range(len(models)):
+        ax.text(i, win_rate.iloc[i] / 2, f"{win_rate.iloc[i]:.0%}",
+                ha="center", va="center", fontsize=10, fontweight="bold", color="white")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(models, rotation=20, ha="right", fontsize=9)
+    ax.set_ylim(0, 1)
+    ax.set_ylabel("Rate")
+    ax.set_title("Overall Win / Draw / Loss Rate by Model")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {output_path}")
+
+
 # ── Run all ──────────────────────────────────────────────────────────────────
 
 def run_analysis(log_dir: str | None = None, output_dir: str = "pd_plots") -> None:
@@ -286,10 +394,12 @@ def run_analysis(log_dir: str | None = None, output_dir: str = "pd_plots") -> No
 
     cooperation_by_model(df, f"{output_dir}/coop_by_model.png")
     cooperation_by_rounds(df, f"{output_dir}/coop_by_rounds.png")
-    strategy_over_time(df, f"{output_dir}/strategy_over_time.png")
+    strategy_over_time(df, output_dir)
     mutual_cooperation_heatmap(df, f"{output_dir}/mutual_coop_heatmap.png")
     score_heatmap(df, f"{output_dir}/score_heatmap.png")
     strategy_summary(df, f"{output_dir}/strategy_summary.png")
+    win_rate_by_variant(df, f"{output_dir}/win_rate_by_variant.png")
+    win_rate_overall(df, f"{output_dir}/win_rate_overall.png")
 
     # Print summary
     print(f"\n{'='*60}")
