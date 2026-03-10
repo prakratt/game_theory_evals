@@ -328,7 +328,7 @@ def question_difficulty(df: pd.DataFrame, output_path: str = "question_difficult
 
 # ── Run all ──────────────────────────────────────────────────────────────────
 
-def run_analysis(log_dir: str | None = None, output_dir: str = "plots") -> None:
+def run_analysis(log_dir: str | None = None, output_dir: str = "schelling_plots") -> None:
     """Run all analyses and save plots."""
     df = load_logs(log_dir)
     print(f"Loaded {len(df)} scored samples from logs.")
