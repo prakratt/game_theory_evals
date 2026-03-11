@@ -278,6 +278,106 @@ def strategy_summary(df: pd.DataFrame, output_path: str = "strategy_summary.png"
     print(f"Saved: {output_path}")
 
 
+def strategy_by_variant(df: pd.DataFrame, output_dir: str = ".") -> None:
+    """Grouped bar chart of strategy patterns split by round variant."""
+    if df.empty:
+        return
+
+    variants = sorted(df["num_rounds"].unique())
+    colors = plt.cm.tab10.colors
+
+    fig, axes = plt.subplots(1, len(variants), figsize=(6 * len(variants), 5), sharey=False)
+    if len(variants) == 1:
+        axes = [axes]
+
+    for ax, nr in zip(axes, variants):
+        sub = df[df["num_rounds"] == nr]
+        strategies = list(sub["strategy_a"]) + list(sub["strategy_b"])
+        strat_counts = pd.Series(strategies).value_counts()
+
+        bars = ax.bar(range(len(strat_counts)), strat_counts.values,
+                      color=[colors[i % len(colors)] for i in range(len(strat_counts))],
+                      edgecolor="black")
+        ax.set_xticks(range(len(strat_counts)))
+        ax.set_xticklabels(strat_counts.index, rotation=35, ha="right", fontsize=8)
+        for i, v in enumerate(strat_counts.values):
+            ax.text(i, v + 0.3, str(v), ha="center", fontsize=8)
+        ax.set_title(f"{nr}-Round Games", fontsize=11)
+        ax.set_ylabel("Count" if nr == variants[0] else "")
+
+    fig.suptitle("Strategy Patterns by Game Length", fontsize=13)
+    fig.tight_layout()
+    out = f"{output_dir}/strategy_by_variant.png"
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {out}")
+
+
+def score_heatmap_by_variant(df: pd.DataFrame, output_dir: str = ".") -> None:
+    """Score heatmaps split by round variant."""
+    if df.empty:
+        return
+
+    variants = sorted(df["num_rounds"].unique())
+    fig, axes = plt.subplots(1, len(variants), figsize=(6 * len(variants), 5))
+    if len(variants) == 1:
+        axes = [axes]
+
+    for ax, nr in zip(axes, variants):
+        sub = df[df["num_rounds"] == nr]
+        models = sorted(set(sub["model_a"].map(short_name)) | set(sub["model_b"].map(short_name)))
+        matrix = pd.DataFrame(np.nan, index=models, columns=models)
+
+        for (ma, mb), group in sub.groupby(["model_a", "model_b"]):
+            sa, sb = short_name(ma), short_name(mb)
+            matrix.loc[sa, sb] = group["total_score_a"].mean()
+            matrix.loc[sb, sa] = group["total_score_b"].mean()
+
+        sns.heatmap(matrix.astype(float), annot=True, fmt=".1f", cmap="YlOrRd",
+                    ax=ax, square=True)
+        ax.set_title(f"{nr}-Round (max={nr*5})", fontsize=11)
+
+    fig.suptitle("Average Score by Model Pair per Variant\n(row = model, column = partner)", fontsize=12)
+    fig.tight_layout()
+    out = f"{output_dir}/score_heatmap_by_variant.png"
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {out}")
+
+
+def mutual_coop_by_variant(df: pd.DataFrame, output_dir: str = ".") -> None:
+    """Mutual cooperation heatmaps split by round variant."""
+    if df.empty:
+        return
+
+    variants = sorted(df["num_rounds"].unique())
+    fig, axes = plt.subplots(1, len(variants), figsize=(6 * len(variants), 5))
+    if len(variants) == 1:
+        axes = [axes]
+
+    for ax, nr in zip(axes, variants):
+        sub = df[df["num_rounds"] == nr]
+        models = sorted(set(sub["model_a"].map(short_name)) | set(sub["model_b"].map(short_name)))
+        matrix = pd.DataFrame(np.nan, index=models, columns=models)
+
+        for (ma, mb), group in sub.groupby(["model_a", "model_b"]):
+            sa, sb = short_name(ma), short_name(mb)
+            rate = group["mutual_cooperation_rate"].mean()
+            matrix.loc[sa, sb] = rate
+            matrix.loc[sb, sa] = rate
+
+        sns.heatmap(matrix.astype(float), annot=True, fmt=".0%", cmap="YlGn",
+                    vmin=0, vmax=1, ax=ax, square=True)
+        ax.set_title(f"{nr}-Round Games", fontsize=11)
+
+    fig.suptitle("Mutual Cooperation Rate by Model Pair per Variant", fontsize=12)
+    fig.tight_layout()
+    out = f"{output_dir}/mutual_coop_by_variant.png"
+    fig.savefig(out, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {out}")
+
+
 # ── 7. Win rate by model (per variant + overall) ─────────────────────────────
 
 def _compute_win_rates(df: pd.DataFrame) -> pd.DataFrame:
@@ -398,6 +498,9 @@ def run_analysis(log_dir: str | None = None, output_dir: str = "pd_plots") -> No
     mutual_cooperation_heatmap(df, f"{output_dir}/mutual_coop_heatmap.png")
     score_heatmap(df, f"{output_dir}/score_heatmap.png")
     strategy_summary(df, f"{output_dir}/strategy_summary.png")
+    strategy_by_variant(df, output_dir)
+    score_heatmap_by_variant(df, output_dir)
+    mutual_coop_by_variant(df, output_dir)
     win_rate_by_variant(df, f"{output_dir}/win_rate_by_variant.png")
     win_rate_overall(df, f"{output_dir}/win_rate_overall.png")
 
