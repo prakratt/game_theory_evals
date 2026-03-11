@@ -42,6 +42,12 @@ def schelling_dataset() -> list[Sample]:
         ("Name a letter of the alphabet.", "abstract"),
         ("Pick a word.", "abstract"),
         ("Pick a date.", "abstract"),
+        # Number digit scaling
+        ("Pick a 2-digit number.", "number_digits"),
+        ("Pick a 3-digit number.", "number_digits"),
+        ("Pick a 4-digit number.", "number_digits"),
+        ("Pick a 5-digit number.", "number_digits"),
+        ("Pick a 6-digit number.", "number_digits"),
     ]
 
     samples = []
@@ -52,6 +58,7 @@ def schelling_dataset() -> list[Sample]:
             "time": "text",
             "location": "location",
             "abstract": "game_theoretic",
+            "number_digits": "game_theoretic",
         }[category]
         samples.append(
             Sample(
@@ -62,3 +69,23 @@ def schelling_dataset() -> list[Sample]:
             )
         )
     return samples
+
+
+def number_digits_dataset() -> list[Sample]:
+    """Dataset with just the digit-picking questions (2 through 6 digits)."""
+    prompts = [
+        ("Pick a 2-digit number.", 2),
+        ("Pick a 3-digit number.", 3),
+        ("Pick a 4-digit number.", 4),
+        ("Pick a 5-digit number.", 5),
+        ("Pick a 6-digit number.", 6),
+    ]
+    return [
+        Sample(
+            input=prompt,
+            target="",
+            id=f"schelling_number_{digits}digit",
+            metadata={"category": "number_digits", "experiment_type": "game_theoretic", "num_digits": digits},
+        )
+        for prompt, digits in prompts
+    ]
