@@ -326,6 +326,97 @@ def question_difficulty(df: pd.DataFrame, output_path: str = "question_difficult
     print(f"Saved: {output_path}")
 
 
+# ── 8. Digit scaling: match rate by digit count ──────────────────────────────
+
+def digit_scaling_match_rate(df: pd.DataFrame, output_path: str = "digit_scaling_match_rate.png") -> None:
+    """Bar chart of first-turn and overall match rate by digit count."""
+    digit_df = df[df["category"] == "number_digits"].copy()
+    if digit_df.empty:
+        return
+
+    # Extract digit count from question text
+    import re
+    def get_digits(q):
+        m = re.search(r"(\d+)-digit", q)
+        return int(m.group(1)) if m else 0
+    digit_df["num_digits"] = digit_df["question"].apply(get_digits)
+    digit_df = digit_df[digit_df["num_digits"] > 0]
+
+    digit_df["first_turn"] = (digit_df["turn_matched"] == 1).astype(int)
+    digit_df["matched"] = (digit_df["value"] == "C").astype(int)
+
+    grouped = digit_df.groupby("num_digits").agg(
+        schelling_rate=("first_turn", "mean"),
+        match_rate=("matched", "mean"),
+        count=("first_turn", "size"),
+    ).sort_index()
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    x = np.arange(len(grouped))
+    w = 0.35
+    bars1 = ax.bar(x - w/2, grouped["schelling_rate"], w, label="Turn-1 match",
+                   color="mediumseagreen", edgecolor="black")
+    bars2 = ax.bar(x + w/2, grouped["match_rate"], w, label="Overall match (5 turns)",
+                   color="steelblue", edgecolor="black")
+    for i, (s, m) in enumerate(zip(grouped["schelling_rate"], grouped["match_rate"])):
+        ax.text(i - w/2, s + 0.02, f"{s:.0%}", ha="center", fontsize=9)
+        ax.text(i + w/2, m + 0.02, f"{m:.0%}", ha="center", fontsize=9)
+    ax.set_xticks(x)
+    ax.set_xticklabels([f"{d}-digit" for d in grouped.index])
+    ax.set_ylabel("Match Rate")
+    ax.set_ylim(0, 1.15)
+    ax.set_title("Schelling Match Rate by Number of Digits")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {output_path}")
+
+
+def digit_scaling_answers(df: pd.DataFrame, output_path: str = "digit_scaling_answers.png") -> None:
+    """Stacked bar chart showing answer distribution per digit count."""
+    digit_df = df[df["category"] == "number_digits"].copy()
+    if digit_df.empty:
+        return
+
+    import re
+    def get_digits(q):
+        m = re.search(r"(\d+)-digit", q)
+        return int(m.group(1)) if m else 0
+    digit_df["num_digits"] = digit_df["question"].apply(get_digits)
+    digit_df = digit_df[digit_df["num_digits"] > 0]
+
+    digit_counts = sorted(digit_df["num_digits"].unique())
+    fig, axes = plt.subplots(1, len(digit_counts), figsize=(3.5 * len(digit_counts), 5), sharey=False)
+    if len(digit_counts) == 1:
+        axes = [axes]
+
+    colors = plt.cm.Set2.colors
+
+    for ax, nd in zip(axes, digit_counts):
+        sub = digit_df[digit_df["num_digits"] == nd]
+        # Collect all answers from both models
+        all_answers = list(sub["answer_a"]) + list(sub["answer_b"])
+        answer_counts = pd.Series(all_answers).value_counts().head(6)
+
+        bars = ax.bar(range(len(answer_counts)), answer_counts.values,
+                      color=[colors[i % len(colors)] for i in range(len(answer_counts))],
+                      edgecolor="black")
+        ax.set_xticks(range(len(answer_counts)))
+        ax.set_xticklabels(answer_counts.index, rotation=30, ha="right", fontsize=9)
+        for i, v in enumerate(answer_counts.values):
+            pct = v / len(all_answers)
+            ax.text(i, v + 0.5, f"{pct:.0%}", ha="center", fontsize=9)
+        ax.set_title(f"{nd}-digit", fontsize=11)
+        ax.set_ylabel("Count" if nd == digit_counts[0] else "")
+
+    fig.suptitle("Answer Distribution by Digit Count", fontsize=13)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=150)
+    plt.close(fig)
+    print(f"Saved: {output_path}")
+
+
 # ── Run all ──────────────────────────────────────────────────────────────────
 
 def run_analysis(log_dir: str | None = None, output_dir: str = "schelling_plots") -> None:
@@ -345,6 +436,8 @@ def run_analysis(log_dir: str | None = None, output_dir: str = "schelling_plots"
     category_breakdown(df, f"{output_dir}/category_breakdown.png")
     same_vs_cross(df, f"{output_dir}/same_vs_cross.png")
     question_difficulty(df, f"{output_dir}/question_difficulty.png")
+    digit_scaling_match_rate(df, f"{output_dir}/digit_scaling_match_rate.png")
+    digit_scaling_answers(df, f"{output_dir}/digit_scaling_answers.png")
 
     # Print summary
     df["matched"] = (df["value"] == "C").astype(int)
@@ -371,6 +464,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Analyze Schelling eval results")
     parser.add_argument("--log-dir", default=None, help="Path to inspect logs directory")
-    parser.add_argument("--output-dir", default="plots", help="Directory for output plots")
+    parser.add_argument("--output-dir", default="schelling_plots", help="Directory for output plots")
     args = parser.parse_args()
     run_analysis(log_dir=args.log_dir, output_dir=args.output_dir)
