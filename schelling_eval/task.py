@@ -8,7 +8,7 @@ if _parent not in sys.path:
 
 from inspect_ai import Task, task
 
-from schelling_eval.dataset import schelling_dataset
+from schelling_eval.dataset import number_digits_dataset, schelling_dataset
 from schelling_eval.scorer import schelling_scorer
 from schelling_eval.solver import schelling_solver
 
@@ -38,6 +38,16 @@ def schelling_visible(max_turns: int = 5) -> Task:
     """Visible mode: models see both players' guess history."""
     return Task(
         dataset=schelling_dataset(),
+        solver=schelling_solver(max_turns=max_turns, visible=True),
+        scorer=schelling_scorer(),
+    )
+
+
+@task
+def schelling_digits(max_turns: int = 5) -> Task:
+    """Number digit scaling: pick a 2/3/4/5/6-digit number."""
+    return Task(
+        dataset=number_digits_dataset(),
         solver=schelling_solver(max_turns=max_turns, visible=True),
         scorer=schelling_scorer(),
     )
