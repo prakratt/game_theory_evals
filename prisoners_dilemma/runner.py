@@ -33,6 +33,7 @@ def build_commands() -> list[list[str]]:
                 "--model", model_a,
                 "--model-role", f"partner={model_b}",
                 "--temperature", "0",
+                "--epochs", "10",
             ]
             commands.append(cmd)
     return commands
