@@ -11,6 +11,7 @@ venv.bak/
 
 # Logs
 logs/
+old_logs/
 *.log
 *.log.*
 *.out
