@@ -94,8 +94,10 @@ def schelling_solver(max_turns: int = 5, visible: bool = False) -> Solver:
                     followup_a = FOLLOWUP_BLIND.format(own_previous_guesses=own_a)
                     followup_b = FOLLOWUP_BLIND.format(own_previous_guesses=own_b)
 
-                messages_a = [system_msg, ChatMessageUser(content=followup_a)]
-                messages_b = [system_msg, ChatMessageUser(content=followup_b)]
+                # Restate the question: each follow-up turn starts a fresh
+                # message list, so it would otherwise be dropped.
+                messages_a = [system_msg, ChatMessageUser(content=f"{question}\n\n{followup_a}")]
+                messages_b = [system_msg, ChatMessageUser(content=f"{question}\n\n{followup_b}")]
 
         # Store results for the scorer
         state.store.set("answer_a", all_answers_a[-1])
